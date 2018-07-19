@@ -12,7 +12,7 @@ def partition(array, front, end):
         array[front], array[end] = array[end], array[front]
 
     array[front], array[begin] = array[begin], array[front]
-    print array
+    #print array
     return front
 
 def quick_sort(a, front, end):
@@ -20,6 +20,18 @@ def quick_sort(a, front, end):
         middle = partition(a, front, end)
         quick_sort(a,front, middle-1)
         quick_sort(a, middle+1, end)
+
+def get_k(a, front, end, k):
+    if front == end:
+        return a[front]
+    else:
+        index = partition(a, front, end)
+        if index < k:
+            return get_k(a, index+1, end, k)
+        elif index > k :
+            return get_k(a, front, index+1, k)
+        else :
+            return a[k]
 
 
 def bubble_sort(a):
@@ -97,12 +109,42 @@ def b_search_loop(x, target):
             end = middle-1
     return -1
 
-a = [1, 0, 2, 3, 0 ,8, 3, 1,6]
-a = [4, 6, 3 ,0 ,1, 2, 6, 7, 9]
-#a = [3, 3, 3, 3, 3, 3, 3, 3, 3]
+def rotate_array(a):
+    front = 0
+    end = len(a) - 1
+    while(front < end):
+        middle = (front + end)/2
+        if a[front] > a[middle] :
+            end = middle
+        elif a[middle]> a[end]:
+            front = middle
+        elif a[front] == a[middle]:
+            min = a[front]
+            for i in range(front, middle+1):
+                if a[i] < min:
+                    min = a[i]
+            return min
+        elif a[middle] == a[end]:
+            min = a[middle]
+            for i in range(middle, end+1):
+                if a[i] < min:
+                    min = a[i]
+            return min
+        else:
+            return a[front]
+    return a[front]
 
-a.sort()#quick_sort(a, 0, len(a)-1)
+
+
+
+#a = [1, 0, 2, 3, 0 ,8, 3, 1,6]
+#a = [4, 6, 3 ,0 ,1, 2, 6, 7, 9]
+#a = [3, 3, 3, 3, 3, 3, 3, 3, 3]
+a = [3, 3, 3, 3, 3, 3, 3, 3, 3]
+
 print(a)
+print(rotate_array(a))
+print(get_k(a, 0, len(a)-1, 2))
 print(b_search(a,3,0, len(a)-1))
 print(b_search_loop(a, 3))
 
@@ -110,7 +152,5 @@ print(b_search_loop(a, 3))
 #print(merge_sort(a))
 #print(heap_sort(a))
 
-
-a.sort()
 
 
