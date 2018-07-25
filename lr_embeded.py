@@ -1,19 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-##########################################################################
-#
-# Copyright (c) 2018 Baidu.com, Inc. All Rights Reserved
-#
-##########################################################################
-"""
-@File    : lr_embeded.py
-@Author  : chenghanni@baidu.com
-"""
 import os
 import sys
+import copy
 
 sys.path.append(os.path.join(os.getcwd()))
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LogisticRegression
 from pyspark.sql import SparkSession
 from utils.model_train_log import logger
@@ -202,12 +193,10 @@ def run_distributed(**param):
             return {"status": str(int(invalid)), "reason": msg, "features": []}
 
         logger.info("Model initialization finished.")
-        res.sort(key=lambda x: abs(x[1]), reverse=True)
-        new_features = res
+        new_features = res.sort(key=lambda x: abs(x[1]), reverse=True)
         logger.info("Finish feature selection.")
         logger.info("Done!")
-        return {"status": str(int(invalid)), "reason": msg,
-                "features": new_features}
+        return {"status": str(int(invalid)), "reason": msg, "features": new_features}
     else:
         try:
             res = data.rdd.repartition(num_partition).mapPartitions(
@@ -224,16 +213,15 @@ def run_distributed(**param):
         def process(x):
             n = len(x)
             feat = x[0][0]
-            x = map(lambda x: x[1], x)
+            x = map(lambda p: p[1], x)
             x.sort()
-            return (feat, sum(x[1:n - 1]) / 1.0 * (n - 2))
+            return feat, sum(x[1:n - 1]) / (1.0 * (n - 2))
 
         new_features = map(process, res)
         new_features.sort(key=lambda x: abs(x[1]), reverse=True)
         logger.info("Finish feature selection")
         logger.info("Done!")
-        return {"status": str(int(invalid)), "reason": msg,
-                "features": new_features}
+        return {"status": str(int(invalid)), "reason": msg, "features": new_features}
 
 
 if __name__ == '__main__':
@@ -252,5 +240,5 @@ if __name__ == '__main__':
             'param': {'appId': '0001', 'busiScene': 'score_name', 'name': 'model_name'},
             'delimiter': sys.argv[2]
         }
-    res = run_distributed(**param)
-    print(res)
+    result = run_distributed(**param)
+    print(result)

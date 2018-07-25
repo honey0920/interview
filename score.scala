@@ -1,23 +1,62 @@
+package org.apache.spark.mllib.feature
 import org.apache.spark.rdd.RDD
 import breeze.linalg.{DenseMatrix => BDM}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix, Vector, Vectors}
 import scala.collection.mutable
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.stat.{MultivariateStatisticalSummary, Statistics}
-
+import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.util.StatCounter
 private[spark] class FeatureScore {
-  def VarFeatures(data: RDD[LabeledPoint]): Array[FeatureCriterion] = {
-    val numCols = data.first().features.size
-    val results = new Array[Double](numCols)
-    val allfeatures = data.map{
-      case LabeledPoint(label, features) =>
-        features
-    }
-    val summary: MultivariateStatisticalSummary = Statistics.colStats(allfeatures)
-    summary.variance.toArray.zipWithIndex.map(p => {
-      val variance = new FeatureCriterion().init(p._2, p._1)
+//  def VarFeatures(data: RDD[LabeledPoint]): Array[FeatureCriterion] = {
+//    val numCols = data.first().features.size
+//    val results = new Array[Double](numCols)
+//
+//    val allfeatures = data.map{
+//      case LabeledPoint(label, features) =>
+//        features
+//    }
+//
+//    val summary: MultivariateStatisticalSummary = Statistics.colStats(allfeatures)
+//    summary.variance.toArray.zipWithIndex.map(p => {
+//      val variance = new FeatureCriterion().init(p._2, p._1)
+//      variance
+//    })
+//  }
+  def VarFeatures(dataset: RDD[LabeledPoint]): Array[FeatureCriterion] = {
+    val summary = dataset.mapPartitions(iter => {
+      var temp = List[StatCounter]()
+      if(iter.hasNext) {
+        val firstRow = iter.next()
+        val features = firstRow.features
+        for (index <- 0 until features.size) {
+          val stat : StatCounter = new StatCounter()
+          val value = features.apply(index)
+          if (value != -9999) {
+            stat.merge(value)
+          }
+          temp.::=(stat)
+        }
+        temp = temp.reverse
+        iter.foreach(p => {
+          val features = p.features
+          for (index <- 0 until features.size) {
+            val value = features.apply(index)
+            if (value != -9999) {
+              temp(index).merge(value)
+            }
+          }
+        })
+      }
+      Array(temp).iterator
+    }).reduce((a, b) => {
+      a.zip(b).map { case (m, n) => m.merge(n) }
+    })
+    val result = summary.zipWithIndex.map(p => {
+      val variance = new FeatureCriterion().init(p._2, p._1.variance)
       variance
     })
+    return result.toArray
   }
 // accelerate cov computation using aggregate
   def CovFeatures(data: RDD[LabeledPoint]): Array[FeatureCriterion] = {
@@ -57,20 +96,21 @@ private[spark] class FeatureScore {
           }
         }
       }.countByValue()
+      val filterCounts = pairCounts.filterKeys(x => x._2 != -9999)
       if (labels == null) {
         // Do this only once for the first column since labels are invariant across features.
         labels =
-          pairCounts.keys.filter(_._1 == startCol).map(_._3).toArray.distinct.zipWithIndex.toMap
+          filterCounts.keys.filter(_._1 == startCol).map(_._3).toArray.distinct.zipWithIndex.toMap
       }
       val numLabels = labels.size
-      pairCounts.keys.groupBy(_._1).foreach { case (col, keys) =>
+      filterCounts.keys.groupBy(_._1).foreach { case (col, keys) =>
         val features = keys.map(_._2).toArray.distinct.zipWithIndex.toMap
         val numRows = features.size
         val contingency = new BDM(numRows, numLabels, new Array[Double](numRows * numLabels))
         keys.foreach { case (_, feature, label) =>
           val i = features(feature)
           val j = labels(label)
-          contingency(i, j) += pairCounts((col, feature, label))
+          contingency(i, j) += filterCounts((col, feature, label))
         }
         results(col) = chiSquaredMatrix(Matrices.fromBreeze(contingency))
       }
@@ -107,20 +147,21 @@ private[spark] class FeatureScore {
           }
         }
       }.countByValue()
+      val filterCounts = pairCounts.filterKeys(x => x._2 != -9999)
       if (labels == null) {
         // Do this only once for the first column since labels are invariant across features.
         labels =
-          pairCounts.keys.filter(_._1 == startCol).map(_._3).toArray.distinct.zipWithIndex.toMap
+          filterCounts.keys.filter(_._1 == startCol).map(_._3).toArray.distinct.zipWithIndex.toMap
       }
       val numLabels = labels.size
-      pairCounts.keys.groupBy(_._1).foreach { case (col, keys) =>
+      filterCounts.keys.groupBy(_._1).foreach { case (col, keys) =>
         val features = keys.map(_._2).toArray.distinct.zipWithIndex.toMap
         val numRows = features.size
         val contingency = new BDM(numRows, numLabels, new Array[Double](numRows * numLabels))
         keys.foreach { case (_, feature, label) =>
           val i = features(feature)
           val j = labels(label)
-          contingency(i, j) += pairCounts((col, feature, label))
+          contingency(i, j) += filterCounts((col, feature, label))
         }
         results(col) = MutualInfoMatrix(Matrices.fromBreeze(contingency))
       }
@@ -209,14 +250,16 @@ private class CovarianceCounter extends Serializable {
   var count = 0L // count of observed examples
   // add an example to the calculation
   def add(x: Double, y: Double): this.type = {
-    val deltaX = x - xAvg
-    val deltaY = y - yAvg
-    count += 1
-    xAvg += deltaX / count
-    yAvg += deltaY / count
-    Ck += deltaX * (y - yAvg)
-    MkX += deltaX * (x - xAvg)
-    MkY += deltaY * (y - yAvg)
+    if(x != -9999 && y != -9999) {
+      val deltaX = x - xAvg
+      val deltaY = y - yAvg
+      count += 1
+      xAvg += deltaX / count
+      yAvg += deltaY / count
+      Ck += deltaX * (y - yAvg)
+      MkX += deltaX * (x - xAvg)
+      MkY += deltaY * (y - yAvg)
+    }
     this
   }
   // merge counters from other partitions. Formula can be found at:
