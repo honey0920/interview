@@ -85,6 +85,46 @@ def max_depth(root):
         return 0
     return max(max_depth(root.left), max_depth(root.right)) + 1
 
+def print_tree(root):
+    if root is None:
+        return
+    queue = []
+    queue.append(root)
+    while queue != []:
+        node = queue[0]
+        queue.pop(0)
+        if node.left:
+            queue.append(node.left)
+        if node.right:
+            queue.append(node.right)
+        print(node.data)
+
+def print_line(root):
+    if root is None:
+        return
+    queue = []
+    lines = []
+    queue.append(root)
+    lines.append(0)
+    cur_line = 0
+    while queue != [] :
+        node = queue[0]
+        line = lines[0]
+        queue.pop(0)
+        lines.pop(0)
+        if node.left:
+            queue.append(node.left)
+            lines.append(line+1)
+        if node.right:
+            queue.append(node.right)
+            lines.append(line+1)
+        if(cur_line != line):
+            print("")
+            cur_line = line
+        print str(node.data) + " "
+
+
+
 def rebuild(pre, center):
     if not pre:
         return None
@@ -94,8 +134,70 @@ def rebuild(pre, center):
     cur.right = rebuild(pre[index+1 :], center[index+1 : ])
     return cur
 
+def next_node(cur):
+    if cur is None:
+        return cur
 
-pos_travelsal(tree)
-print("-*-*-*-----------------------------")
-pos_travelsal_stack(tree)
+    if cur.right != None:
+        right = cur.right
+        while right.left != None :
+            right = right.left
+        return right
+    elif cur.parent != None :
+        parent = cur.parent
+        node = cur
+        while parent != None and node == parent.right:
+            node = parent
+            parent = parent.parent
+        return parent
+    return None
+
+def find_path_core(root, target,  cur, paths, cur_path):
+    cur += root.data
+    cur_path.append(root.data)
+    if cur == target and root.left == None and root.right == None:
+        paths.append(tuple(cur_path))
+
+    if root.left != None:
+        find_path_core(root.left, target, cur, paths, cur_path)
+    if root.right != None:
+        find_path_core(root.right, target, cur, paths, cur_path)
+    cur_path.pop(-1)
+
+
+
+def find_path(root, target):
+    if root is None:
+        return None
+    else:
+        paths = []
+        find_path_core(root, target, 0, paths, [])
+        return paths
+
+
+def verify_seq(seq):
+    if seq == []:
+        return False
+
+    root = seq[-1]
+    i = 0
+    while seq[i] <= root and  i < len(seq)-1:
+        i += 1
+
+    for j in range(i, len(seq)):
+        if seq[j] < root:
+            return False
+    left = True
+    if i>0 :
+        left = verify_seq(seq[:i])
+    right = True
+    if i < len(seq)-1:
+        right = verify_seq(seq[i:-1])
+    return left and right
+
+#print(find_path(tree, 8))
+#pos_travelsal(tree)
+#print("-*-*-*-----------------------------")
+#pos_travelsal_stack(tree)
+print(verify_seq([5,7,6,9,11,10,8]))
 

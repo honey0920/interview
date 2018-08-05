@@ -98,9 +98,103 @@ def common_node(list1, list2):
 
 
 
+def delete_dup(list1):
+    if(list1 is None or list1.next is None):
+        return list1
 
-a = init_list([1, 2, 3, 4])
+    pre = None
+    cur = list1
+    while cur.next != None:
+        if cur.val != cur.next.val:
+            pre = cur
+            cur = cur.next
+        else :
+            value = cur.val
+            to_del = cur
+            while to_del != None and to_del.val == value:
+                nxt = to_del.next
+                to_del = nxt
+            if pre == None:
+                list1 = nxt
+            else :
+                pre.next = nxt
+
+            cur = nxt
+    return list1
+
+def is_loop(head):
+    if head is None or head.next is None:
+        return False
+    slow = head.next
+    fast = slow.next
+    while fast != None:
+        if  slow != fast :
+            slow = slow.next
+            fast = fast.next.next
+        else:
+            return True
+    return False
+
+def back_k(head, k):
+    if head is None or k == 0:
+        return head
+    cur = head
+    l = 0
+    while cur != None:
+        cur = cur.next
+        l += 1
+    if l < k:
+        return None
+    else:
+        fast = head
+        slow = head
+        for i in range(k):
+            fast = fast.next
+        while fast != None:
+            fast = fast.next
+            slow = slow.next
+        return slow
+
+def merge_list(head1, head2):
+    if head1 is None:
+        return head2
+    if head2 is None:
+        return head1
+
+    if head1.val > head2.val:
+        head3 = ListNode(head2.val)
+        head2 = head2. next
+    else:
+        head3 = ListNode(head1.val)
+        head1 = head1.next
+
+    cur = head3
+
+    while head1 != None and head2 != None:
+        if head1.val > head2.val:
+            cur.next = ListNode(head2.val)
+            head2 = head2.next
+            cur = cur.next
+        else :
+            cur.next = ListNode(head1.val)
+            head1 = head1.next
+            cur = cur.next
+
+    while head1 != None:
+        cur.next = ListNode(head1.val)
+        head1 = head1.next
+        cur = cur.next
+
+    while head2 !=None:
+        cur.next = ListNode(head2.val)
+        head2 = head2.next
+        cur = cur.next
+    return head3
+
+a = init_list([1,3,5,7,8,9])
+b = init_list([2,4 ,6, 7, 10])
 # a.next.next = ListNode(3)
 
-r = swapPairs(a)
+#r = delete_dup(a)
+r = merge_list(a, b)
 show(r)
