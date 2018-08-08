@@ -121,7 +121,7 @@ def print_line(root):
         if(cur_line != line):
             print("")
             cur_line = line
-        print str(node.data) + " "
+        print (str(node.data), end= " ")
 
 
 
